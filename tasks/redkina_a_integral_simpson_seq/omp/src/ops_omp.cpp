@@ -12,60 +12,6 @@
 
 namespace redkina_a_integral_simpson_seq {
 
-namespace {
-
-// Вспомогательные функции, используемые в вычислениях (аналогично seq версии)
-void EvaluatePoint(const std::vector<double> &a, const std::vector<double> &h, const std::vector<int> &n,
-                   const std::vector<int> &indices, const std::function<double(const std::vector<double> &)> &func,
-                   std::vector<double> &point, double &sum) {
-  size_t dim = a.size();
-  double w_prod = 1.0;
-  for (size_t dim_idx = 0; dim_idx < dim; ++dim_idx) {
-    int idx = indices[dim_idx];
-    point[dim_idx] = a[dim_idx] + (static_cast<double>(idx) * h[dim_idx]);
-
-    int w = 0;
-    if (idx == 0 || idx == n[dim_idx]) {
-      w = 1;
-    } else if (idx % 2 == 1) {
-      w = 4;
-    } else {
-      w = 2;
-    }
-    w_prod *= static_cast<double>(w);
-  }
-  sum += w_prod * func(point);
-}
-
-bool AdvanceIndices(std::vector<int> &indices, const std::vector<int> &n) {
-  int dim = static_cast<int>(indices.size());
-  int d = dim - 1;
-  while (d >= 0 && indices[d] == n[d]) {
-    indices[d] = 0;
-    --d;
-  }
-  if (d < 0) {
-    return false;
-  }
-  ++indices[d];
-  return true;
-}
-
-}  // namespace
-
-// Статическая функция преобразования линейного индекса в многомерный
-std::vector<int> RedkinaAIntegralSimpsonOMP::LinearToIndices(size_t lin, const std::vector<int> &n) {
-  size_t dim = n.size();
-  std::vector<int> indices(dim);
-  size_t temp = lin;
-  for (int d = static_cast<int>(dim) - 1; d >= 0; --d) {
-    int base = n[d] + 1;
-    indices[d] = static_cast<int>(temp % base);
-    temp /= base;
-  }
-  return indices;
-}
-
 RedkinaAIntegralSimpsonOMP::RedkinaAIntegralSimpsonOMP(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
@@ -102,62 +48,64 @@ bool RedkinaAIntegralSimpsonOMP::PreProcessingImpl() {
 }
 
 bool RedkinaAIntegralSimpsonOMP::RunImpl() {
-  size_t dim = a_.size();
+  const size_t dim = a_.size();
 
-  // Шаги интегрирования по каждому направлению
+  // Шаги сетки
   std::vector<double> h(dim);
-  for (size_t i = 0; i < dim; ++i) {
-    h[i] = (b_[i] - a_[i]) / static_cast<double>(n_[i]);
-  }
-
-  // Произведение шагов
   double h_prod = 1.0;
   for (size_t i = 0; i < dim; ++i) {
+    h[i] = (b_[i] - a_[i]) / static_cast<double>(n_[i]);
     h_prod *= h[i];
   }
 
-  // Общее количество узлов сетки (комбинаций индексов)
-  size_t total_combinations = 1;
+  // Общее количество узлов (комбинаций индексов)
+  // Используем знаковый тип для индекса цикла в OpenMP
+  using index_t = long long;
+  index_t total_nodes = 1;
   for (int ni : n_) {
-    total_combinations *= static_cast<size_t>(ni + 1);
+    total_nodes *= static_cast<index_t>(ni + 1);
   }
 
   double global_sum = 0.0;
 
+// Распараллеливание: каждый поток создаёт свои локальные векторы один раз
 #pragma omp parallel
   {
-    int thread_num = omp_get_thread_num();
-    int num_threads = omp_get_num_threads();
+    // Локальные для потока векторы (переиспользуются на всех итерациях потока)
+    std::vector<double> local_point(dim);
+    std::vector<int> local_indices(dim);
 
-    // Распределение итераций (блоков) между потоками
-    size_t chunk_size = (total_combinations + static_cast<size_t>(num_threads) - 1) / static_cast<size_t>(num_threads);
-    size_t start = static_cast<size_t>(thread_num) * chunk_size;
-    size_t end = std::min(start + chunk_size, total_combinations);
+#pragma omp for reduction(+ : global_sum)
+    for (index_t lin = 0; lin < total_nodes; ++lin) {
+      // Преобразование линейного индекса в многомерные индексы
+      index_t tmp = lin;
+      double weight = 1.0;
+      for (int d = static_cast<int>(dim) - 1; d >= 0; --d) {
+        const int base = n_[d] + 1;
+        const int idx = static_cast<int>(tmp % base);
+        tmp /= base;
+        local_indices[d] = idx;
+        local_point[d] = a_[d] + static_cast<double>(idx) * h[d];
 
-    // Только потоки, которым досталась работа
-    if (start < total_combinations) {
-      // Локальные для потока данные
-      std::vector<int> local_indices = LinearToIndices(start, n_);
-      std::vector<double> local_point(dim);
-      double local_sum = 0.0;
-
-      // Перебор всех комбинаций в выделенном диапазоне
-      for (size_t lin = start; lin < end; ++lin) {
-        EvaluatePoint(a_, h, n_, local_indices, func_, local_point, local_sum);
-        // Переход к следующей комбинации (кроме последней итерации)
-        if (lin + 1 < end) {
-          AdvanceIndices(local_indices, n_);
+        // Коэффициент Симпсона для данного измерения
+        int coeff;
+        if (idx == 0 || idx == n_[d]) {
+          coeff = 1;
+        } else if (idx % 2 == 1) {
+          coeff = 4;
+        } else {
+          coeff = 2;
         }
+        weight *= static_cast<double>(coeff);
       }
 
-      // Атомарное добавление локальной суммы в глобальную
-#pragma omp atomic
-      global_sum += local_sum;
+      // Добавление вклада узла
+      global_sum += weight * func_(local_point);
     }
   }
 
-  // Знаменатель формулы Симпсона: 3^dim
-  double denominator = std::pow(3.0, static_cast<double>(dim));
+  // Итоговый результат: (h1*h2*...*hd / 3^d) * сумма
+  const double denominator = std::pow(3.0, static_cast<double>(dim));
   result_ = (h_prod / denominator) * global_sum;
 
   return true;
