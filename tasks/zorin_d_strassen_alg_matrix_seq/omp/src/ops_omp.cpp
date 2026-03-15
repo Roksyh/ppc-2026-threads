@@ -43,30 +43,46 @@ void AddToBuffer(const double *a, std::size_t a_stride, const double *b, std::si
   }
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+void MulMicroBlock(const double *a, std::size_t a_stride, const double *b, std::size_t b_stride, double *c,
+                   std::size_t c_stride, std::size_t i_begin, std::size_t i_end, std::size_t k_begin, std::size_t k_end,
+                   std::size_t j_begin, std::size_t j_end) {
+  for (std::size_t i = i_begin; i < i_end; ++i) {
+    double *c_row = c + (i * c_stride);
+    const double *a_row = a + (i * a_stride);
+    for (std::size_t k = k_begin; k < k_end; ++k) {
+      const double aik = a_row[k];
+      const double *b_row = b + (k * b_stride);
+      for (std::size_t j = j_begin; j < j_end; ++j) {
+        c_row[j] += aik * b_row[j];
+      }
+    }
+  }
+}
+
+void MulJBlocks(const double *a, std::size_t a_stride, const double *b, std::size_t b_stride, double *c,
+                std::size_t c_stride, std::size_t n, std::size_t ii, std::size_t i_end, std::size_t kk,
+                std::size_t k_end) {
+  for (std::size_t jj = 0; jj < n; jj += kBlockSize) {
+    const std::size_t j_end = std::min(jj + kBlockSize, n);
+    MulMicroBlock(a, a_stride, b, b_stride, c, c_stride, ii, i_end, kk, k_end, jj, j_end);
+  }
+}
+
+void MulKBlocks(const double *a, std::size_t a_stride, const double *b, std::size_t b_stride, double *c,
+                std::size_t c_stride, std::size_t n, std::size_t ii, std::size_t i_end) {
+  for (std::size_t kk = 0; kk < n; kk += kBlockSize) {
+    const std::size_t k_end = std::min(kk + kBlockSize, n);
+    MulJBlocks(a, a_stride, b, b_stride, c, c_stride, n, ii, i_end, kk, k_end);
+  }
+}
+
 void NaiveMulBlocked(const double *a, std::size_t a_stride, const double *b, std::size_t b_stride, double *c,
                      std::size_t c_stride, std::size_t n) {
   ZeroMatrix(c, c_stride, n);
 
   for (std::size_t ii = 0; ii < n; ii += kBlockSize) {
     const std::size_t i_end = std::min(ii + kBlockSize, n);
-    for (std::size_t kk = 0; kk < n; kk += kBlockSize) {
-      const std::size_t k_end = std::min(kk + kBlockSize, n);
-      for (std::size_t jj = 0; jj < n; jj += kBlockSize) {
-        const std::size_t j_end = std::min(jj + kBlockSize, n);
-        for (std::size_t i = ii; i < i_end; ++i) {
-          double *c_row = c + (i * c_stride);
-          const double *a_row = a + (i * a_stride);
-          for (std::size_t k = kk; k < k_end; ++k) {
-            const double aik = a_row[k];
-            const double *b_row = b + (k * b_stride);
-            for (std::size_t j = jj; j < j_end; ++j) {
-              c_row[j] += aik * b_row[j];
-            }
-          }
-        }
-      }
-    }
+    MulKBlocks(a, a_stride, b, b_stride, c, c_stride, n, ii, i_end);
   }
 }
 
@@ -96,8 +112,13 @@ void CombineQuadrants(const std::vector<double> &m1, const std::vector<double> &
   }
 }
 
-void StrassenSeq(const double *a, std::size_t a_stride, const double *b, std::size_t b_stride, double *c,
-                 std::size_t c_stride, std::size_t n);
+using StrassenSeqFn = void (*)(const double *, std::size_t, const double *, std::size_t, double *, std::size_t,
+                               std::size_t);
+
+void StrassenSeqImpl(const double *a, std::size_t a_stride, const double *b, std::size_t b_stride, double *c,
+                     std::size_t c_stride, std::size_t n);
+
+constexpr StrassenSeqFn kStrassenSeqFn = &StrassenSeqImpl;
 
 void ComputeProduct(const double *a1, std::size_t a1_stride, const double *a2, std::size_t a2_stride, double a2_coeff,
                     const double *b1, std::size_t b1_stride, const double *b2, std::size_t b2_stride, double b2_coeff,
@@ -107,7 +128,7 @@ void ComputeProduct(const double *a1, std::size_t a1_stride, const double *a2, s
   AddToBuffer(a1, a1_stride, a2, a2_stride, lhs.data(), n, a2_coeff);
   AddToBuffer(b1, b1_stride, b2, b2_stride, rhs.data(), n, b2_coeff);
   out.assign(n * n, 0.0);
-  StrassenSeq(lhs.data(), n, rhs.data(), n, out.data(), n, n);
+  kStrassenSeqFn(lhs.data(), n, rhs.data(), n, out.data(), n, n);
 }
 
 void ComputeProductSingle(const double *a, std::size_t a_stride, const double *b1, std::size_t b1_stride,
@@ -116,7 +137,7 @@ void ComputeProductSingle(const double *a, std::size_t a_stride, const double *b
   std::vector<double> rhs(n * n);
   AddToBuffer(b1, b1_stride, b2, b2_stride, rhs.data(), n, b2_coeff);
   out.assign(n * n, 0.0);
-  StrassenSeq(a, a_stride, rhs.data(), n, out.data(), n, n);
+  kStrassenSeqFn(a, a_stride, rhs.data(), n, out.data(), n, n);
 }
 
 void ComputeProductSingleLeft(const double *a1, std::size_t a1_stride, const double *a2, std::size_t a2_stride,
@@ -125,13 +146,13 @@ void ComputeProductSingleLeft(const double *a1, std::size_t a1_stride, const dou
   std::vector<double> lhs(n * n);
   AddToBuffer(a1, a1_stride, a2, a2_stride, lhs.data(), n, a2_coeff);
   out.assign(n * n, 0.0);
-  StrassenSeq(lhs.data(), n, b, b_stride, out.data(), n, n);
+  kStrassenSeqFn(lhs.data(), n, b, b_stride, out.data(), n, n);
 }
 
 void StrassenTopOmp(const double *a, std::size_t a_stride, const double *b, std::size_t b_stride, double *c,
                     std::size_t c_stride, std::size_t n) {
   if (n <= kCutoff || ppc::util::GetNumThreads() <= 1) {
-    StrassenSeq(a, a_stride, b, b_stride, c, c_stride, n);
+    kStrassenSeqFn(a, a_stride, b, b_stride, c, c_stride, n);
     return;
   }
 
@@ -181,9 +202,8 @@ void StrassenTopOmp(const double *a, std::size_t a_stride, const double *b, std:
   CombineQuadrants(m1, m2, m3, m4, m5, m6, m7, c, c_stride, half);
 }
 
-// NOLINTNEXTLINE(misc-no-recursion)
-void StrassenSeq(const double *a, std::size_t a_stride, const double *b, std::size_t b_stride, double *c,
-                 std::size_t c_stride, std::size_t n) {
+void StrassenSeqImpl(const double *a, std::size_t a_stride, const double *b, std::size_t b_stride, double *c,
+                     std::size_t c_stride, std::size_t n) {
   if (n <= kCutoff) {
     NaiveMulBlocked(a, a_stride, b, b_stride, c, c_stride, n);
     return;
@@ -213,27 +233,27 @@ void StrassenSeq(const double *a, std::size_t a_stride, const double *b, std::si
 
   AddToBuffer(a11, a_stride, a22, a_stride, lhs.data(), half, 1.0);
   AddToBuffer(b11, b_stride, b22, b_stride, rhs.data(), half, 1.0);
-  StrassenSeq(lhs.data(), half, rhs.data(), half, m1.data(), half, half);
+  kStrassenSeqFn(lhs.data(), half, rhs.data(), half, m1.data(), half, half);
 
   AddToBuffer(a21, a_stride, a22, a_stride, lhs.data(), half, 1.0);
-  StrassenSeq(lhs.data(), half, b11, b_stride, m2.data(), half, half);
+  kStrassenSeqFn(lhs.data(), half, b11, b_stride, m2.data(), half, half);
 
   AddToBuffer(b12, b_stride, b22, b_stride, rhs.data(), half, -1.0);
-  StrassenSeq(a11, a_stride, rhs.data(), half, m3.data(), half, half);
+  kStrassenSeqFn(a11, a_stride, rhs.data(), half, m3.data(), half, half);
 
   AddToBuffer(b21, b_stride, b11, b_stride, rhs.data(), half, -1.0);
-  StrassenSeq(a22, a_stride, rhs.data(), half, m4.data(), half, half);
+  kStrassenSeqFn(a22, a_stride, rhs.data(), half, m4.data(), half, half);
 
   AddToBuffer(a11, a_stride, a12, a_stride, lhs.data(), half, 1.0);
-  StrassenSeq(lhs.data(), half, b22, b_stride, m5.data(), half, half);
+  kStrassenSeqFn(lhs.data(), half, b22, b_stride, m5.data(), half, half);
 
   AddToBuffer(a21, a_stride, a11, a_stride, lhs.data(), half, -1.0);
   AddToBuffer(b11, b_stride, b12, b_stride, rhs.data(), half, 1.0);
-  StrassenSeq(lhs.data(), half, rhs.data(), half, m6.data(), half, half);
+  kStrassenSeqFn(lhs.data(), half, rhs.data(), half, m6.data(), half, half);
 
   AddToBuffer(a12, a_stride, a22, a_stride, lhs.data(), half, -1.0);
   AddToBuffer(b21, b_stride, b22, b_stride, rhs.data(), half, 1.0);
-  StrassenSeq(lhs.data(), half, rhs.data(), half, m7.data(), half, half);
+  kStrassenSeqFn(lhs.data(), half, rhs.data(), half, m7.data(), half, half);
 
   CombineQuadrants(m1, m2, m3, m4, m5, m6, m7, c, c_stride, half);
 }
