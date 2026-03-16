@@ -10,7 +10,7 @@
 
 #include "posternak_a_crs_mul_complex_matrix/common/include/common.hpp"
 
-namespace posternak_a_crs_mul_complex_matrix {
+namespace {
 
 static size_t ComputeRowNoZeroCount(const posternak_a_crs_mul_complex_matrix::CRSMatrix &a,
                                     const posternak_a_crs_mul_complex_matrix::CRSMatrix &b, int row, double threshold) {
@@ -80,6 +80,10 @@ static void ComputeAndWriteRow(const posternak_a_crs_mul_complex_matrix::CRSMatr
     }
   }
 }
+
+}  // namespace
+
+namespace posternak_a_crs_mul_complex_matrix {
 
 PosternakACRSMulComplexMatrixOMP::PosternakACRSMulComplexMatrixOMP(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
