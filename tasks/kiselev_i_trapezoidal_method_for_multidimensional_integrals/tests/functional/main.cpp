@@ -10,6 +10,7 @@
 #include <tuple>
 
 #include "kiselev_i_trapezoidal_method_for_multidimensional_integrals/common/include/common.hpp"
+#include "kiselev_i_trapezoidal_method_for_multidimensional_integrals/omp/include/ops_omp.hpp"
 #include "kiselev_i_trapezoidal_method_for_multidimensional_integrals/seq/include/ops_seq.hpp"
 #include "util/include/func_test_util.hpp"
 #include "util/include/util.hpp"
@@ -21,7 +22,7 @@ constexpr double kPi = std::numbers::pi;
 class KiselevIRunFuncTestsThreads : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
-    return std::get<1>(test_param);
+    return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
   }
   double expected_value = 0.0;
 
@@ -181,7 +182,10 @@ const std::array<TestType, 15> kTestParam = {
     std::make_tuple(12, "exp1"), std::make_tuple(13, "exp2"), std::make_tuple(14, "exp3")};
 
 const auto kTestTasksList =
-    std::tuple_cat(ppc::util::AddFuncTask<KiselevITestTaskSEQ, InType>(kTestParam, PPC_SETTINGS_kiselev_i_trapezoidal_method_for_multidimensional_integrals));
+    std::tuple_cat(ppc::util::AddFuncTask<KiselevITestTaskSEQ, InType>(
+                       kTestParam, PPC_SETTINGS_kiselev_i_trapezoidal_method_for_multidimensional_integrals),
+                   ppc::util::AddFuncTask<KiselevITestTaskOMP, InType>(
+                       kTestParam, PPC_SETTINGS_kiselev_i_trapezoidal_method_for_multidimensional_integrals));
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 
