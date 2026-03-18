@@ -37,7 +37,7 @@ class TerekhovDGaussVertPerfTests : public ppc::util::BaseRunPerfTests<InType, O
   InType GetTestInputData() final {
     return input_data_;
   }
-
+  // 1
  private:
   InType input_data_;
 };

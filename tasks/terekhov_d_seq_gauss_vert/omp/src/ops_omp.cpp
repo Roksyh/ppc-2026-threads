@@ -43,15 +43,21 @@ bool TerekhovDGaussVertOMP::PreProcessingImpl() {
     for (int col = 0; col < padded_width; ++col) {
       int src_x = col - 1;
       int src_y = row - 1;
-      if (src_x < 0) { src_x = -src_x - 1; }
-      if (src_x >= width_) { src_x = (2 * width_) - src_x - 1; }
-      if (src_y < 0) { src_y = -src_y - 1; }
-      if (src_y >= height_) { src_y = (2 * height_) - src_y - 1; }
+      if (src_x < 0) {
+        src_x = -src_x - 1;
+      }
+      if (src_x >= width_) {
+        src_x = (2 * width_) - src_x - 1;
+      }
+      if (src_y < 0) {
+        src_y = -src_y - 1;
+      }
+      if (src_y >= height_) {
+        src_y = (2 * height_) - src_y - 1;
+      }
 
-      size_t padded_idx =
-          (static_cast<size_t>(row) * static_cast<size_t>(padded_width)) + static_cast<size_t>(col);
-      size_t src_idx =
-          (static_cast<size_t>(src_y) * static_cast<size_t>(width_)) + static_cast<size_t>(src_x);
+      size_t padded_idx = (static_cast<size_t>(row) * static_cast<size_t>(padded_width)) + static_cast<size_t>(col);
+      size_t src_idx = (static_cast<size_t>(src_y) * static_cast<size_t>(width_)) + static_cast<size_t>(src_x);
       padded_image_[padded_idx] = input.data[src_idx];
     }
   }
@@ -66,10 +72,8 @@ void TerekhovDGaussVertOMP::ProcessPixel(OutType &output, int padded_width, int 
       int px = col + kx + 1;
       int py = row + ky + 1;
       int kernel_idx = ((ky + 1) * 3) + (kx + 1);
-      size_t padded_idx =
-          (static_cast<size_t>(py) * static_cast<size_t>(padded_width)) + static_cast<size_t>(px);
-      sum += static_cast<float>(padded_image_[padded_idx]) *
-             kGaussKernel[static_cast<size_t>(kernel_idx)];
+      size_t padded_idx = (static_cast<size_t>(py) * static_cast<size_t>(padded_width)) + static_cast<size_t>(px);
+      sum += static_cast<float>(padded_image_[padded_idx]) * kGaussKernel[static_cast<size_t>(kernel_idx)];
     }
   }
   output.data[idx] = static_cast<int>(std::lround(sum));
@@ -107,8 +111,7 @@ bool TerekhovDGaussVertOMP::RunImpl() {
 }
 
 bool TerekhovDGaussVertOMP::PostProcessingImpl() {
-  return GetOutput().data.size() ==
-         (static_cast<size_t>(GetOutput().width) * static_cast<size_t>(GetOutput().height));
+  return GetOutput().data.size() == (static_cast<size_t>(GetOutput().width) * static_cast<size_t>(GetOutput().height));
 }
 
 }  // namespace terekhov_d_seq_gauss_vert
