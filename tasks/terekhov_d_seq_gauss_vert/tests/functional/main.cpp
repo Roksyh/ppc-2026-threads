@@ -7,13 +7,14 @@
 #include <vector>
 
 #include "terekhov_d_seq_gauss_vert/common/include/common.hpp"
+#include "terekhov_d_seq_gauss_vert/omp/include/ops_omp.hpp"
 #include "terekhov_d_seq_gauss_vert/seq/include/ops_seq.hpp"
 #include "util/include/func_test_util.hpp"
 #include "util/include/util.hpp"
 
 namespace terekhov_d_seq_gauss_vert {
 
-class TerekhovDRunFuncTestsGauss : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
+class TerekhovDGaussBase : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
     return std::to_string(test_param);
@@ -22,7 +23,6 @@ class TerekhovDRunFuncTestsGauss : public ppc::util::BaseRunFuncTests<InType, Ou
  protected:
   void SetUp() override {
     TestType size = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-
     int img_size = static_cast<int>(std::sqrt(static_cast<double>(size)));
     if (img_size * img_size < size) {
       ++img_size;
@@ -31,7 +31,6 @@ class TerekhovDRunFuncTestsGauss : public ppc::util::BaseRunFuncTests<InType, Ou
     input_data_.width = img_size;
     input_data_.height = img_size;
     input_data_.data.resize(static_cast<size_t>(input_data_.width) * static_cast<size_t>(input_data_.height));
-
     for (size_t i = 0; i < input_data_.data.size(); ++i) {
       input_data_.data[i] = static_cast<int>(i % 101);
     }
@@ -41,11 +40,9 @@ class TerekhovDRunFuncTestsGauss : public ppc::util::BaseRunFuncTests<InType, Ou
     if (!ValidateOutputSize(output_data)) {
       return false;
     }
-
     if (input_data_.width < 3 || input_data_.height < 3) {
       return true;
     }
-
     return ValidateCenterPixel(output_data);
   }
 
@@ -54,39 +51,29 @@ class TerekhovDRunFuncTestsGauss : public ppc::util::BaseRunFuncTests<InType, Ou
   }
 
   [[nodiscard]] bool ValidateOutputSize(const OutType &output_data) const {
-    if (output_data.width != input_data_.width || output_data.height != input_data_.height) {
-      return false;
-    }
-
-    return output_data.data.size() == input_data_.data.size();
+    return output_data.width == input_data_.width && output_data.height == input_data_.height &&
+           output_data.data.size() == input_data_.data.size();
   }
 
   [[nodiscard]] bool ValidateCenterPixel(const OutType &output_data) const {
     int cx = input_data_.width / 2;
     int cy = input_data_.height / 2;
-
     float expected = ComputeExpectedValue(cx, cy);
     int actual = GetActualValue(output_data, cx, cy);
-    int expected_int = static_cast<int>(std::lround(expected));
-
-    return std::abs(actual - expected_int) <= 1;
+    return std::abs(actual - static_cast<int>(std::lround(expected))) <= 1;
   }
 
   [[nodiscard]] float ComputeExpectedValue(int cx, int cy) const {
     float sum = 0.0F;
-
     for (int ky = -1; ky <= 1; ++ky) {
       for (int kx = -1; kx <= 1; ++kx) {
         int px = ClampCoordinate(cx + kx, 0, input_data_.width - 1);
         int py = ClampCoordinate(cy + ky, 0, input_data_.height - 1);
-
         int kernel_idx = ((ky + 1) * 3) + (kx + 1);
         size_t data_idx = (static_cast<size_t>(py) * static_cast<size_t>(input_data_.width)) + static_cast<size_t>(px);
-
         sum += static_cast<float>(input_data_.data[data_idx]) * kGaussKernel[static_cast<size_t>(kernel_idx)];
       }
     }
-
     return sum;
   }
 
@@ -109,22 +96,37 @@ class TerekhovDRunFuncTestsGauss : public ppc::util::BaseRunFuncTests<InType, Ou
   InType input_data_;
 };
 
+class TerekhovDRunFuncTestsGauss : public TerekhovDGaussBase {};
+
+class TerekhovDRunFuncTestsGaussOMP : public TerekhovDGaussBase {};
+
 namespace {
 
-TEST_P(TerekhovDRunFuncTestsGauss, GaussFilter) {
+TEST_P(TerekhovDRunFuncTestsGauss, GaussFilterSEQ) {
   ExecuteTest(GetParam());
 }
 
 const std::array<TestType, 3> kTestParam = {16, 256, 1024};
-
-const auto kTestTasksList =
+const auto kTestTasksListSEQ =
     ppc::util::AddFuncTask<TerekhovDGaussVertSEQ, InType>(kTestParam, PPC_SETTINGS_terekhov_d_seq_gauss_vert);
+const auto kGtestValuesSEQ = ppc::util::ExpandToValues(kTestTasksListSEQ);
+const auto kTestNameSEQ = TerekhovDRunFuncTestsGauss::PrintFuncTestName<TerekhovDRunFuncTestsGauss>;
+INSTANTIATE_TEST_SUITE_P(GaussFilterTestsSEQ, TerekhovDRunFuncTestsGauss, kGtestValuesSEQ, kTestNameSEQ);
 
-const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
+}  // namespace
 
-const auto kTestName = TerekhovDRunFuncTestsGauss::PrintFuncTestName<TerekhovDRunFuncTestsGauss>;
+namespace {
 
-INSTANTIATE_TEST_SUITE_P(GaussFilterTests, TerekhovDRunFuncTestsGauss, kGtestValues, kTestName);
+TEST_P(TerekhovDRunFuncTestsGaussOMP, GaussFilterOMP) {
+  ExecuteTest(GetParam());
+}
+
+const std::array<TestType, 3> kTestParamOMP = {16, 256, 1024};
+const auto kTestTasksListOMP =
+    ppc::util::AddFuncTask<TerekhovDGaussVertOMP, InType>(kTestParamOMP, PPC_SETTINGS_terekhov_d_seq_gauss_vert);
+const auto kGtestValuesOMP = ppc::util::ExpandToValues(kTestTasksListOMP);
+const auto kTestNameOMP = TerekhovDRunFuncTestsGaussOMP::PrintFuncTestName<TerekhovDRunFuncTestsGaussOMP>;
+INSTANTIATE_TEST_SUITE_P(GaussFilterTestsOMP, TerekhovDRunFuncTestsGaussOMP, kGtestValuesOMP, kTestNameOMP);
 
 }  // namespace
 
