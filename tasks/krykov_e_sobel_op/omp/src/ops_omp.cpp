@@ -11,18 +11,18 @@
 
 namespace krykov_e_sobel_op {
 
-KrykovESobelOpSEQ::KrykovESobelOpSEQ(const InType &in) {
+KrykovESobelOpOMP::KrykovESobelOpOMP(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
   GetOutput().clear();
 }
 
-bool KrykovESobelOpSEQ::ValidationImpl() {
+bool KrykovESobelOpOMP::ValidationImpl() {
   const auto &img = GetInput();
   return img.width > 2 && img.height > 2 && static_cast<int>(img.data.size()) == img.width * img.height;
 }
 
-bool KrykovESobelOpSEQ::PreProcessingImpl() {
+bool KrykovESobelOpOMP::PreProcessingImpl() {
   const auto &img = GetInput();
 
   width_ = img.width;
@@ -38,7 +38,7 @@ bool KrykovESobelOpSEQ::PreProcessingImpl() {
   return true;
 }
 
-bool KrykovESobelOpSEQ::RunImpl() {
+bool KrykovESobelOpOMP::RunImpl() {
   const std::array<std::array<int, 3>, 3> gx_kernel = {{{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}};
 
   const std::array<std::array<int, 3>, 3> gy_kernel = {{{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}}};
@@ -73,7 +73,7 @@ bool KrykovESobelOpSEQ::RunImpl() {
   return true;
 }
 
-bool KrykovESobelOpSEQ::PostProcessingImpl() {
+bool KrykovESobelOpOMP::PostProcessingImpl() {
   return true;
 }
 

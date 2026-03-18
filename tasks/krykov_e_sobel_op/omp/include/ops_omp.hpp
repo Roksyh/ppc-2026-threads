@@ -7,12 +7,12 @@
 
 namespace krykov_e_sobel_op {
 
-class KrykovESobelOpSEQ : public BaseTask {
+class KrykovESobelOpOMP : public BaseTask {
  public:
   static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
-    return ppc::task::TypeOfTask::kSEQ;
+    return ppc::task::TypeOfTask::kOMP;
   }
-  explicit KrykovESobelOpSEQ(const InType &in);
+  explicit KrykovESobelOpOMP(const InType &in);
 
  private:
   bool ValidationImpl() override;
