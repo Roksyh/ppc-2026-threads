@@ -94,14 +94,14 @@ void TerekhovDGaussVertOMP::ProcessBand(OutType &output, int padded_width, int b
 }
 
 void TerekhovDGaussVertOMP::ProcessBandsOMP(OutType &output) {
-  int padded_width = width_ + 2;
-  int band_width = std::max(width_ / kNumBands, 1);
+  const int padded_width = width_ + 2;
+  const int band_width = std::max(width_ / kNumBands, 1);
+  const int num_bands = kNumBands;
+  const std::vector<int> &local_padded_image = padded_image_;
 
-  const auto &local_padded_image = padded_image_;
-
-#pragma omp parallel for default(none) shared(output, local_padded_image, width_, height_, padded_width, band_width) \
+#pragma omp parallel for default(none) shared(output, local_padded_image, padded_width, band_width, num_bands) \
     schedule(static)
-  for (int band = 0; band < kNumBands; ++band) {
+  for (int band = 0; band < num_bands; ++band) {
     ProcessBand(output, padded_width, band, band_width, local_padded_image);
   }
 }
