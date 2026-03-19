@@ -11,7 +11,7 @@
 #include "terekhov_d_gauss_vert/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
 
-namespace terekhov_d_gauss_vert{
+namespace terekhov_d_gauss_vert {
 
 class TerekhovDGaussVertPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  public:
@@ -37,7 +37,7 @@ class TerekhovDGaussVertPerfTests : public ppc::util::BaseRunPerfTests<InType, O
   InType GetTestInputData() final {
     return input_data_;
   }
-  // 1
+  // 123344
  private:
   InType input_data_;
 };
