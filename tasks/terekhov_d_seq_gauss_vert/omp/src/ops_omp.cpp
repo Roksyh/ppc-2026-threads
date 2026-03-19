@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "terekhov_d_seq_gauss_vert/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace terekhov_d_seq_gauss_vert {
 
@@ -93,8 +92,7 @@ void TerekhovDGaussVertOMP::ProcessBandsOMP(OutType &output) {
   int padded_width = width_ + 2;
   int band_width = std::max(width_ / kNumBands, 1);
 
-#pragma omp parallel for default(none) shared(output, padded_width, band_width) \
-    num_threads(ppc::util::GetNumThreads()) schedule(static)
+#pragma omp parallel for default(none) shared(output, padded_width, band_width) schedule(static)
   for (int band = 0; band < kNumBands; ++band) {
     ProcessBand(output, padded_width, band, band_width);
   }
