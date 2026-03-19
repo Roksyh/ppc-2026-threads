@@ -21,8 +21,10 @@ class TerekhovDGaussVertOMP : public BaseTask {
   bool PostProcessingImpl() override;
 
   void ProcessBandsOMP(OutType &output);
-  void ProcessBand(OutType &output, int padded_width, int band, int band_width);
-  void ProcessPixel(OutType &output, int padded_width, int row, int col);
+  void ProcessBand(OutType &output, int padded_width, int band, int band_width,
+                   const std::vector<int> &local_padded_image) const;
+  void ProcessPixel(OutType &output, int padded_width, int row, int col,
+                    const std::vector<int> &local_padded_image) const;
 
   int width_ = 0;
   int height_ = 0;
