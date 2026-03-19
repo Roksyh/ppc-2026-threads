@@ -9,6 +9,56 @@
 
 namespace terekhov_d_seq_gauss_vert {
 
+namespace {
+
+inline void ProcessPixel(OutType &output, const std::vector<int> &padded_image, int padded_width, int width, int row,
+                         int col) {
+  size_t idx = (static_cast<size_t>(row) * static_cast<size_t>(width)) + static_cast<size_t>(col);
+  float sum = 0.0F;
+  for (int ky = -1; ky <= 1; ++ky) {
+    for (int kx = -1; kx <= 1; ++kx) {
+      int px = col + kx + 1;
+      int py = row + ky + 1;
+      int kernel_idx = ((ky + 1) * 3) + (kx + 1);
+      size_t padded_idx = (static_cast<size_t>(py) * static_cast<size_t>(padded_width)) + static_cast<size_t>(px);
+      sum += static_cast<float>(padded_image[padded_idx]) * kGaussKernel[static_cast<size_t>(kernel_idx)];
+    }
+  }
+  output.data[idx] = static_cast<int>(std::lround(sum));
+}
+
+inline void ProcessBand(OutType &output, const std::vector<int> &padded_image, int padded_width, int width, int height,
+                        int band, int band_width, int num_bands) {
+  int start_x = band * band_width;
+  int end_x = (band == num_bands - 1) ? width : ((band + 1) * band_width);
+  for (int row = 0; row < height; ++row) {
+    for (int col = start_x; col < end_x; ++col) {
+      ProcessPixel(output, padded_image, padded_width, width, row, col);
+    }
+  }
+}
+
+inline OutType SolveOMP(const std::vector<int> &padded_image, int width, int height) {
+  OutType output;
+  output.width = width;
+  output.height = height;
+  output.data.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
+
+  const int padded_width = width + 2;
+  const int band_width = std::max(width / 4, 1);
+  const int num_bands = 4;
+
+#pragma omp parallel for default(none) \
+    shared(output, padded_image, padded_width, width, height, band_width, num_bands) schedule(static)
+  for (int band = 0; band < num_bands; ++band) {
+    ProcessBand(output, padded_image, padded_width, width, height, band, band_width, num_bands);
+  }
+
+  return output;
+}
+
+}  // namespace
+
 TerekhovDGaussVertOMP::TerekhovDGaussVertOMP(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
@@ -29,10 +79,6 @@ bool TerekhovDGaussVertOMP::PreProcessingImpl() {
   const auto &input = GetInput();
   width_ = input.width;
   height_ = input.height;
-
-  GetOutput().width = width_;
-  GetOutput().height = height_;
-  GetOutput().data.resize(static_cast<size_t>(width_) * static_cast<size_t>(height_));
 
   int padded_width = width_ + 2;
   int padded_height = height_ + 2;
@@ -64,57 +110,12 @@ bool TerekhovDGaussVertOMP::PreProcessingImpl() {
   return true;
 }
 
-void TerekhovDGaussVertOMP::ProcessPixel(OutType &output, int padded_width, int row, int col,
-                                         const std::vector<int> &local_padded_image) const {
-  size_t idx = (static_cast<size_t>(row) * static_cast<size_t>(width_)) + static_cast<size_t>(col);
-  float sum = 0.0F;
-
-  for (int ky = -1; ky <= 1; ++ky) {
-    for (int kx = -1; kx <= 1; ++kx) {
-      int px = col + kx + 1;
-      int py = row + ky + 1;
-      int kernel_idx = ((ky + 1) * 3) + (kx + 1);
-      size_t padded_idx = (static_cast<size_t>(py) * static_cast<size_t>(padded_width)) + static_cast<size_t>(px);
-      sum += static_cast<float>(local_padded_image[padded_idx]) * kGaussKernel[static_cast<size_t>(kernel_idx)];
-    }
-  }
-  output.data[idx] = static_cast<int>(std::lround(sum));
-}
-
-void TerekhovDGaussVertOMP::ProcessBand(OutType &output, int padded_width, int band, int band_width,
-                                        const std::vector<int> &local_padded_image) const {
-  int start_x = band * band_width;
-  int end_x = (band == kNumBands - 1) ? width_ : ((band + 1) * band_width);
-
-  for (int row = 0; row < height_; ++row) {
-    for (int col = start_x; col < end_x; ++col) {
-      ProcessPixel(output, padded_width, row, col, local_padded_image);
-    }
-  }
-}
-
-void TerekhovDGaussVertOMP::ProcessBandsOMP(OutType &output) {
-  const int padded_width = width_ + 2;
-  const int band_width = std::max(width_ / kNumBands, 1);
-  const int num_bands = kNumBands;
-  const std::vector<int> &local_padded_image = padded_image_;
-
-#pragma omp parallel for default(none) shared(output, local_padded_image, padded_width, band_width, num_bands) \
-    schedule(static)
-  for (int band = 0; band < num_bands; ++band) {
-    ProcessBand(output, padded_width, band, band_width, local_padded_image);
-  }
-}
-
 bool TerekhovDGaussVertOMP::RunImpl() {
   const auto &input = GetInput();
-  auto &output = GetOutput();
-
   if (input.data.empty() || width_ <= 0 || height_ <= 0) {
     return false;
   }
-
-  ProcessBandsOMP(output);
+  GetOutput() = SolveOMP(padded_image_, width_, height_);
   return true;
 }
 
