@@ -5,12 +5,10 @@
 
 #include <cstddef>
 #include <map>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include "potashnik_m_matrix_mult_complex/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace potashnik_m_matrix_mult_complex {
 
@@ -46,7 +44,9 @@ bool PotashnikMMatrixMultComplexOMP::RunImpl() {
   int threads = omp_get_max_threads();
   std::vector<std::map<std::pair<size_t, size_t>, Complex>> local_buffers(threads);
 
-#pragma omp parallel num_threads(threads)
+#pragma omp parallel num_threads(threads) default(none)                                                              \
+    shared(local_buffers, matrix_left, matrix_right, val_left, row_ind_left, col_ptr_left, val_right, row_ind_right, \
+               col_ptr_right, width_right, height_left, threads)
   {
     int tid = omp_get_thread_num();
     auto &local_buffer = local_buffers[tid];
