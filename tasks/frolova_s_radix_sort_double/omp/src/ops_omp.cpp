@@ -53,7 +53,7 @@ void ProcessChunk(std::vector<double> &chunk) {
   positive.reserve(chunk.size());
 
   for (double val : chunk) {
-    if ((std::bit_cast<uint64_t>(val) >> 63) != 0u) {
+    if ((std::bit_cast<uint64_t>(val) >> 63) != 0U) {
       negative.push_back(val);
     } else {
       positive.push_back(val);
