@@ -50,7 +50,6 @@ const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
 const auto kPerfTestName = YushkovaPRunPerfTestsThreads::CustomPerfTestName;
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 INSTANTIATE_TEST_SUITE_P(RunModeTests, YushkovaPRunPerfTestsThreads, kGtestValues, kPerfTestName);
 
 }  // namespace
