@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "util/include/perf_test_util.hpp"
+#include "zagryadskov_m_complex_spmm_ccs/all/include/ops_all.hpp"
 #include "zagryadskov_m_complex_spmm_ccs/common/include/common.hpp"
 #include "zagryadskov_m_complex_spmm_ccs/omp/include/ops_omp.hpp"
 #include "zagryadskov_m_complex_spmm_ccs/seq/include/ops_seq.hpp"
@@ -120,8 +121,8 @@ namespace {
 
 const auto kAllPerfTasks =
     ppc::util::MakeAllPerfTasks<InType, ZagryadskovMComplexSpMMCCSSEQ, ZagryadskovMComplexSpMMCCSOMP,
-                                ZagryadskovMComplexSpMMCCSTBB, ZagryadskovMComplexSpMMCCSSTL>(
-        PPC_SETTINGS_zagryadskov_m_complex_spmm_ccs);
+                                ZagryadskovMComplexSpMMCCSTBB, ZagryadskovMComplexSpMMCCSSTL,
+                                ZagryadskovMComplexSpMMCCSALL>(PPC_SETTINGS_zagryadskov_m_complex_spmm_ccs);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
