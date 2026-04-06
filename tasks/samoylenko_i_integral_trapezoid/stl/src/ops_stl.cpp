@@ -82,8 +82,7 @@ bool SamoylenkoIIntegralTrapezoidSTL::PreProcessingImpl() {
 
 namespace {
 double GetLocalSum(int64_t start, int64_t end, int dimensions, const std::vector<int64_t> &dim_sizes,
-                         const std::vector<double> &h, const auto &in,
-                         auto &integral_function) {
+                   const std::vector<double> &h, const auto &in, auto &integral_function) {
   std::vector<double> current_point(dimensions);
   double local_sum = 0.0;
 
@@ -133,7 +132,7 @@ bool SamoylenkoIIntegralTrapezoidSTL::RunImpl() {
   for (int thr = 0; thr < num_threads; thr++) {
     int64_t start = (points * thr) / num_threads;
     int64_t end = (points * (thr + 1)) / num_threads;
-    
+
     threads[thr] = std::thread([&, thr, start, end]() {
       local_sums[thr] = GetLocalSum(start, end, dimensions, dim_sizes, h, in, integral_function);
     });
@@ -160,6 +159,6 @@ bool SamoylenkoIIntegralTrapezoidSTL::RunImpl() {
 
 bool SamoylenkoIIntegralTrapezoidSTL::PostProcessingImpl() {
   return true;
-} 
+}
 
 }  // namespace samoylenko_i_integral_trapezoid
