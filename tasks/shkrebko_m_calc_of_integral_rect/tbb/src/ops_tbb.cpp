@@ -99,7 +99,7 @@ double ShkrebkoMCalcOfIntegralRectTBB::ComputeBlockSum(std::size_t start_idx, st
 
   for (std::size_t iter = 0; iter < (end_idx - start_idx); ++iter) {
     for (std::size_t dim_idx = 0; dim_idx < dim; ++dim_idx) {
-      point[dim_idx] = limits[dim_idx].first + (static_cast<double>(indices[dim_idx]) + 0.5) * h[dim_idx];
+      point[dim_idx] = limits[dim_idx].first + ((static_cast<double>(indices[dim_idx]) + 0.5) * h[dim_idx]);
     }
     block_sum += local_input_.func(point);
 
