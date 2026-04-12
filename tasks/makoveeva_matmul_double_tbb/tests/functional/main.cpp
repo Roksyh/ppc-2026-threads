@@ -14,7 +14,6 @@
 
 namespace makoveeva_matmul_double_tbb {
 
-// Уникальное имя класса - добавляем TBB в конец
 class MakoveevaTBBRunFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
