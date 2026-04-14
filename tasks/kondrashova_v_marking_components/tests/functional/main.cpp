@@ -110,20 +110,12 @@ class MarkingComponentsFuncTest : public ppc::util::BaseRunFuncTests<InType, Out
       image.width = 4;
       image.height = 4;
     } else if (type == "u_shape") {
-      image.data = {0, 1, 0, 
-                    0, 1, 0, 
-                    0, 0, 0};
+      image.data = {0, 1, 0, 0, 1, 0, 0, 0, 0};
       image.width = 3;
       image.height = 3;
     } else if (type == "complex") {
       // 2 components
-      image.data = {
-          0, 1, 0, 1, 0,
-          0, 1, 0, 1, 0,
-          0, 0, 0, 1, 1,
-          1, 1, 0, 0, 0,
-          0, 0, 0, 1, 1
-      };
+      image.data = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1};
       image.width = 5;
       image.height = 5;
     }
@@ -137,9 +129,9 @@ TEST_P(MarkingComponentsFuncTest, VariousBinaryImages) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 6> kTestParam = {std::make_tuple(0, "empty"), std::make_tuple(1, "one_component"),
+const std::array<TestType, 6> kTestParam = {std::make_tuple(0, "empty"),           std::make_tuple(1, "one_component"),
                                             std::make_tuple(2, "isolated_pixels"), std::make_tuple(3, "two_regions"),
-                                            std::make_tuple(4, "u_shape"), std::make_tuple(5, "complex")};
+                                            std::make_tuple(4, "u_shape"),         std::make_tuple(5, "complex")};
 
 const auto kTestTasksList = std::tuple_cat(
     ppc::util::AddFuncTask<KondrashovaVTaskSEQ, InType>(kTestParam, PPC_SETTINGS_kondrashova_v_marking_components),
