@@ -200,7 +200,7 @@ bool TerekhovDGaussVertALL::ValidationImpl() {
     }
   }
 
-  MPI_Bcast(&valid, 1, MPI_CXX_BOOL, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&valid, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
   return valid;
 }
 
@@ -267,7 +267,7 @@ bool TerekhovDGaussVertALL::PostProcessingImpl() {
         GetOutput().data.size() == (static_cast<size_t>(GetOutput().width) * static_cast<size_t>(GetOutput().height));
   }
 
-  MPI_Bcast(&result, 1, MPI_CXX_BOOL, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&result, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
   return result;
 }
 // 1111333
